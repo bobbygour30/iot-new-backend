@@ -15,6 +15,14 @@ const validateRequest = (req, res, next) => {
 };
 
 const registerValidation = [
+  body('firstName')
+    .notEmpty()
+    .withMessage('First name is required')
+    .trim(),
+  body('lastName')
+    .notEmpty()
+    .withMessage('Last name is required')
+    .trim(),
   body('email')
     .isEmail()
     .withMessage('Please provide a valid email')
@@ -33,9 +41,9 @@ const registerValidation = [
     .notEmpty()
     .withMessage('Zone name is required')
     .trim(),
-  body('plantName')
+  body('address')
     .notEmpty()
-    .withMessage('Plant name is required')
+    .withMessage('Address is required')
     .trim(),
   body('state')
     .notEmpty()

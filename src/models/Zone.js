@@ -1,3 +1,4 @@
+// src/models/Zone.js
 const mongoose = require('mongoose');
 
 const zoneSchema = new mongoose.Schema({
@@ -11,9 +12,9 @@ const zoneSchema = new mongoose.Schema({
     required: [true, 'Company name is required'],
     trim: true
   },
-  plantName: {
+  address: {
     type: String,
-    required: [true, 'Plant name is required'],
+    required: [true, 'Address is required'],
     trim: true
   },
   state: {

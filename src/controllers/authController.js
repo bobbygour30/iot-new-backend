@@ -12,15 +12,18 @@ const generateToken = (id) => {
 // @desc    Register new zone user
 // @route   POST /api/auth/register
 // @access  Public
+// src/controllers/authController.js (updated register function)
 const register = async (req, res) => {
   try {
     const {
+      firstName,
+      lastName,
       email,
       password,
       phone,
       companyName,
       zoneName,
-      plantName,
+      address,
       state,
       city,
       pinCode
@@ -35,19 +38,20 @@ const register = async (req, res) => {
       });
     }
 
-    // Check if zone exists for this user (but user doesn't exist yet, so check by email or other)
-    // Create user
+    // Create user with firstName and lastName
     const user = await User.create({
+      firstName,
+      lastName,
       email,
       password,
       phone
     });
 
-    // Create zone for user
+    // Create zone for user (without plantName, with address)
     const zone = await Zone.create({
       zoneName,
       companyName,
-      plantName,
+      address,
       state,
       city,
       pinCode,
@@ -64,6 +68,8 @@ const register = async (req, res) => {
         token,
         user: {
           id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
           email: user.email,
           phone: user.phone,
           role: user.role,
@@ -73,7 +79,7 @@ const register = async (req, res) => {
           id: zone._id,
           zoneName: zone.zoneName,
           companyName: zone.companyName,
-          plantName: zone.plantName,
+          address: zone.address,
           state: zone.state,
           city: zone.city,
           pinCode: zone.pinCode
@@ -88,7 +94,6 @@ const register = async (req, res) => {
     });
   }
 };
-
 // @desc    Login zone user
 // @route   POST /api/auth/login
 // @access  Public
