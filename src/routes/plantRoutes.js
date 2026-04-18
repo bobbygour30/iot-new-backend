@@ -1,11 +1,11 @@
 const express = require('express');
 const {
-  createZone,
-  getZonesByPlant,
-  getZone,
-  updateZone,
-  deleteZone
-} = require('../controllers/zoneController');
+  createPlant,
+  getPlants,
+  getPlant,
+  updatePlant,
+  deletePlant
+} = require('../controllers/plantController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -13,14 +13,12 @@ const router = express.Router();
 router.use(authMiddleware); // All routes require authentication
 
 router.route('/')
-  .post(createZone);
-
-router.route('/plant/:plantId')
-  .get(getZonesByPlant);
+  .post(createPlant)
+  .get(getPlants);
 
 router.route('/:id')
-  .get(getZone)
-  .put(updateZone)
-  .delete(deleteZone);
+  .get(getPlant)
+  .put(updatePlant)
+  .delete(deletePlant);
 
 module.exports = router;

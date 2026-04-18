@@ -4,7 +4,10 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const database = require('./config/database');
 const authRoutes = require('./routes/authRoutes');
+const zoneRoutes = require('./routes/companyRoutes');
+const plantRoutes = require('./routes/plantRoutes');
 const zoneRoutes = require('./routes/zoneRoutes');
+const deviceRoutes = require('./routes/deviceRoutes');
 const errorHandler = require('./middleware/errorMiddleware');
 
 const app = express();
@@ -90,6 +93,10 @@ app.get('/', (req, res) => {
 // ==================== API ROUTES ====================
 app.use('/api/auth', authRoutes);
 app.use('/api/zones', zoneRoutes);
+// Add after other routes
+app.use('/api/plants', plantRoutes);
+app.use('/api/zones', zoneRoutes);
+app.use('/api/devices', deviceRoutes);
 
 // ==================== HEALTH CHECK ====================
 app.get('/health', (req, res) => {

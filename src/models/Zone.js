@@ -1,36 +1,23 @@
-// src/models/Zone.js
 const mongoose = require('mongoose');
 
 const zoneSchema = new mongoose.Schema({
-  zoneName: {
+  name: {
     type: String,
     required: [true, 'Zone name is required'],
     trim: true
   },
-  companyName: {
+  area: {
     type: String,
-    required: [true, 'Company name is required'],
     trim: true
   },
-  address: {
+  purpose: {
     type: String,
-    required: [true, 'Address is required'],
     trim: true
   },
-  state: {
-    type: String,
-    required: [true, 'State is required'],
-    trim: true
-  },
-  city: {
-    type: String,
-    required: [true, 'City is required'],
-    trim: true
-  },
-  pinCode: {
-    type: String,
-    required: [true, 'PIN code is required'],
-    match: [/^\d{6}$/, 'PIN code must be 6 digits']
+  plantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Plant',
+    required: true
   },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -40,40 +27,12 @@ const zoneSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
-  },
-  settings: {
-    temperatureThreshold: {
-      type: Number,
-      default: 34
-    },
-    humidityThreshold: {
-      type: Number,
-      default: 70
-    },
-    vocThreshold: {
-      type: Number,
-      default: 35000
-    },
-    alertEnabled: {
-      type: Boolean,
-      default: true
-    }
-  },
-  metadata: {
-    deviceCount: {
-      type: Number,
-      default: 0
-    },
-    totalReadings: {
-      type: Number,
-      default: 0
-    }
   }
 }, {
   timestamps: true
 });
 
-// Compound index for unique zone per user
-zoneSchema.index({ zoneName: 1, userId: 1 }, { unique: true });
+// Compound index for unique zone per plant
+zoneSchema.index({ name: 1, plantId: 1 }, { unique: true });
 
 module.exports = mongoose.model('Zone', zoneSchema);
