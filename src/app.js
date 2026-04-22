@@ -1,20 +1,15 @@
+// src/app.js
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const database = require('./config/database');
-const authRoutes = require('./routes/authRoutes');
-const companyRoutes = require('./routes/companyRoutes');
-const plantRoutes = require('./routes/plantRoutes');
-const zoneRoutes = require('./routes/zoneRoutes');
-const deviceRoutes = require('./routes/deviceRoutes');
-const adminRoutes = require('./routes/adminRoutes');
+const apiRoutes = require('./routes/api'); // Single route file
 const errorHandler = require('./middleware/errorMiddleware');
 
 const app = express();
 
-// Connect to database (this will use process.env.MONGODB_URI)
-// Don't exit process on Vercel, just log the error
+// Connect to database
 database.connect().catch(err => {
   console.error('Failed to connect to database:', err);
   if (process.env.NODE_ENV !== 'production') {
@@ -25,7 +20,7 @@ database.connect().catch(err => {
 // Security middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
-  contentSecurityPolicy: false // Disable for easier API access
+  contentSecurityPolicy: false
 }));
 
 // CORS configuration
@@ -36,18 +31,19 @@ app.use(cors({
     'http://localhost:5174', 
     'http://localhost:5175',
     'https://iot-seven-alpha.vercel.app',
+    'https://*.vercel.app'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Rate limiting - less strict on Vercel
+// Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: process.env.NODE_ENV === 'production' ? 200 : 100,
   message: 'Too many requests from this IP, please try again later.',
-  skip: (req) => req.path === '/health' // Skip rate limiting for health check
+  skip: (req) => req.path === '/health'
 });
 app.use('/api', limiter);
 
@@ -64,41 +60,19 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // ==================== ROOT ROUTE ====================
-// This fixes the "Route / not found" error on Vercel
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
     message: 'Zone Monitor API is running successfully!',
     version: '1.0.0',
     environment: process.env.NODE_ENV,
-    endpoints: {
-      authentication: {
-        register: 'POST /api/auth/register',
-        login: 'POST /api/auth/login',
-        getMe: 'GET /api/auth/me',
-        logout: 'POST /api/auth/logout'
-      },
-      zones: {
-        getZone: 'GET /api/zones',
-        updateSettings: 'PUT /api/zones/settings',
-        updateMetadata: 'PUT /api/zones/metadata'
-      },
-      health: 'GET /health',
-      documentation: 'https://github.com/your-repo' // Add your docs link
-    },
     timestamp: new Date().toISOString(),
     status: 'online'
   });
 });
 
 // ==================== API ROUTES ====================
-app.use('/api/auth', authRoutes);
-// Add after other routes
-app.use('/api/plants', plantRoutes);
-app.use('/api/zones', zoneRoutes);
-app.use('/api/devices', deviceRoutes);
-app.use('/api/companies', companyRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api', apiRoutes); // Single API route handler
 
 // ==================== HEALTH CHECK ====================
 app.get('/health', (req, res) => {
@@ -108,41 +82,15 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     mongodb: database.connection ? 'connected' : 'disconnected',
-    environment: process.env.NODE_ENV,
-    memory: process.memoryUsage(),
-    version: process.version
-  });
-});
-
-// ==================== API INFO ====================
-app.get('/api', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Zone Monitor API',
-    version: '1.0.0',
-    endpoints: {
-      auth: '/api/auth',
-      zones: '/api/zones',
-      health: '/health'
-    }
+    environment: process.env.NODE_ENV
   });
 });
 
 // ==================== 404 HANDLER ====================
-// This handles any routes that don't match above
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: `Route ${req.originalUrl} not found`,
-    availableEndpoints: [
-      '/',
-      '/health',
-      '/api',
-      '/api/auth/register',
-      '/api/auth/login',
-      '/api/auth/me',
-      '/api/zones'
-    ]
+    message: `Route ${req.originalUrl} not found`
   });
 });
 
