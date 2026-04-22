@@ -54,11 +54,28 @@ const deviceSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  status: {
+    type: String,
+    enum: ['online', 'offline', 'maintenance'],
+    default: 'offline'
+  },
   lastReading: {
-    temperature: Number,
-    humidity: Number,
-    voc: Number,
-    timestamp: Date
+    temperature: {
+      type: Number,
+      default: 0
+    },
+    humidity: {
+      type: Number,
+      default: 0
+    },
+    voc: {
+      type: Number,
+      default: 0
+    },
+    timestamp: {
+      type: Date,
+      default: null
+    }
   }
 }, {
   timestamps: true
@@ -67,5 +84,38 @@ const deviceSchema = new mongoose.Schema({
 // Index for faster queries
 deviceSchema.index({ deviceId: 1 });
 deviceSchema.index({ plantId: 1, zoneId: 1 });
+deviceSchema.index({ status: 1 });
+deviceSchema.index({ userId: 1 });
 
-module.exports = mongoose.model('Device', deviceSchema);
+// Virtual for device age
+deviceSchema.virtual('age').get(function() {
+  return Math.floor((Date.now() - this.createdAt) / (1000 * 60 * 60 * 24));
+});
+
+// Method to update device status based on last reading
+deviceSchema.methods.updateStatusFromReading = function() {
+  if (!this.lastReading.timestamp) {
+    this.status = 'offline';
+  } else {
+    const minutesSinceLastReading = (Date.now() - new Date(this.lastReading.timestamp)) / (1000 * 60);
+    if (minutesSinceLastReading > 10) {
+      this.status = 'offline';
+    } else {
+      this.status = 'online';
+    }
+  }
+  return this.save();
+};
+
+// Static method to get device statistics
+deviceSchema.statics.getStatistics = async function() {
+  const total = await this.countDocuments();
+  const online = await this.countDocuments({ status: 'online' });
+  const offline = await this.countDocuments({ status: 'offline' });
+  const maintenance = await this.countDocuments({ status: 'maintenance' });
+  
+  return { total, online, offline, maintenance };
+};
+
+const Device = mongoose.models.Device || mongoose.model('Device', deviceSchema);
+module.exports = Device;

@@ -1,4 +1,4 @@
-const Zone = require('../models/Company');
+const CompanyZone  = require('../models/Company');
 
 // @desc    Get zone details
 // @route   GET /api/zones

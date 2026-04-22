@@ -1,5 +1,5 @@
 const express = require('express');
-const { register, login, getMe, logout } = require('../controllers/authController');
+const { register, login, getMe, logout, createSuperAdmin } = require('../controllers/authController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { registerValidation, loginValidation } = require('../utils/validators');
 
@@ -12,5 +12,7 @@ router.post('/login', loginValidation, login);
 // Protected routes
 router.get('/me', authMiddleware, getMe);
 router.post('/logout', authMiddleware, logout);
+// Add this route to src/routes/authRoutes.js
+router.post('/create-super-admin', createSuperAdmin);
 
 module.exports = router;

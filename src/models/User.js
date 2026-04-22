@@ -34,8 +34,8 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['zone_admin', 'super_admin'],
-    default: 'zone_admin'
+    enum: ['user', 'zone_admin', 'admin', 'super_admin'],
+    default: 'user'
   },
   isActive: {
     type: Boolean,
@@ -43,14 +43,6 @@ const userSchema = new mongoose.Schema({
   },
   lastLogin: {
     type: Date
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
   }
 }, {
   timestamps: true
@@ -74,10 +66,5 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Update timestamps on save
-userSchema.pre('save', function(next) {
-  this.updatedAt = Date.now();
-  next();
-});
-
-module.exports = mongoose.model('User', userSchema);
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+module.exports = User;

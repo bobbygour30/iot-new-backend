@@ -1,3 +1,4 @@
+// src/models/Plant.js
 const mongoose = require('mongoose');
 
 const plantSchema = new mongoose.Schema({
@@ -33,7 +34,7 @@ const plantSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound index for unique plant per user
 plantSchema.index({ name: 1, userId: 1 }, { unique: true });
 
-module.exports = mongoose.model('Plant', plantSchema);
+const Plant = mongoose.models.Plant || mongoose.model('Plant', plantSchema);
+module.exports = Plant;

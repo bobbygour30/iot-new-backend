@@ -73,6 +73,7 @@ const companyZoneSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Compound index for unique zone per user
 companyZoneSchema.index({ zoneName: 1, userId: 1 }, { unique: true });
 
 const CompanyZone = mongoose.models.CompanyZone || mongoose.model('CompanyZone', companyZoneSchema);
