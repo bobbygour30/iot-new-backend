@@ -4,10 +4,14 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const database = require('./config/database');
-const apiRoutes = require('./routes/api'); // Single route file
+const apiRoutes = require('./routes/api');
 const errorHandler = require('./middleware/errorMiddleware');
 
 const app = express();
+
+// ✅ IMPORTANT: Enable trust proxy for Vercel (and other proxies)
+// This allows Express to get the real IP from X-Forwarded-For header
+app.set('trust proxy', 1); // Trust first proxy
 
 // Connect to database
 database.connect().catch(err => {
@@ -38,12 +42,24 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Rate limiting
+// ✅ Updated Rate limiting - with proper proxy handling
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 15 * 60 * 1000, // 15 minutes
   max: process.env.NODE_ENV === 'production' ? 200 : 100,
   message: 'Too many requests from this IP, please try again later.',
-  skip: (req) => req.path === '/health'
+  skip: (req) => req.path === '/health',
+  // ✅ Add these to handle proxy correctly
+  trustProxy: true,
+  keyGenerator: (req) => {
+    // Use the real IP from the proxy
+    return req.ip || req.connection.remoteAddress;
+  },
+  // ✅ Disable validation checks that cause issues in production
+  validate: {
+    trustProxy: false,
+    xForwardedForHeader: false,
+    forwardedHeader: false
+  }
 });
 app.use('/api', limiter);
 
@@ -54,7 +70,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Request logging middleware (only in development)
 if (process.env.NODE_ENV !== 'production') {
   app.use((req, res, next) => {
-    console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
+    console.log(`${req.method} ${req.path} - IP: ${req.ip} - ${new Date().toISOString()}`);
     next();
   });
 }
@@ -72,7 +88,7 @@ app.get('/', (req, res) => {
 });
 
 // ==================== API ROUTES ====================
-app.use('/api', apiRoutes); // Single API route handler
+app.use('/api', apiRoutes);
 
 // ==================== HEALTH CHECK ====================
 app.get('/health', (req, res) => {
@@ -82,7 +98,8 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     mongodb: database.connection ? 'connected' : 'disconnected',
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
+    clientIp: req.ip // Useful for debugging
   });
 });
 
