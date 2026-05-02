@@ -1,3 +1,4 @@
+// src/controllers/plantController.js
 const Plant = require('../models/Plant');
 const Zone = require('../models/Zone');
 const Device = require('../models/Device');
@@ -7,7 +8,7 @@ const Device = require('../models/Device');
 // @access  Private
 const createPlant = async (req, res) => {
   try {
-    const { name, type, location, description } = req.body;
+    const { name, location, description } = req.body;
     const userId = req.user.id;
 
     // Check if plant already exists for this user
@@ -21,7 +22,6 @@ const createPlant = async (req, res) => {
 
     const plant = await Plant.create({
       name,
-      type,
       location,
       description,
       userId

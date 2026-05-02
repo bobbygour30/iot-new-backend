@@ -7,12 +7,6 @@ const plantSchema = new mongoose.Schema({
     required: [true, 'Plant name is required'],
     trim: true
   },
-  type: {
-    type: String,
-    required: [true, 'Plant type is required'],
-    enum: ['Manufacturing', 'Processing', 'Assembly', 'Warehouse', 'R&D'],
-    default: 'Manufacturing'
-  },
   location: {
     type: String,
     trim: true
