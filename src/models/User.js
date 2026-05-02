@@ -32,6 +32,14 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Phone number is required'],
     match: [/^\d{10}$/, 'Phone number must be 10 digits']
   },
+  companyName: {
+    type: String,
+    required: function() {
+      // companyName is only required for regular users, not for super_admin
+      return this.role !== 'super_admin';
+    },
+    trim: true
+  },
   role: {
     type: String,
     enum: ['user', 'zone_admin', 'admin', 'super_admin'],

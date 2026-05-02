@@ -1,7 +1,6 @@
 // src/controllers/authController.js
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const CompanyZone = require('../models/CompanyZone');
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -10,7 +9,7 @@ const generateToken = (id) => {
   });
 };
 
-// @desc    Register new zone user
+// @desc    Register new user
 // @route   POST /api/auth/register
 // @access  Public
 const register = async (req, res) => {
@@ -22,14 +21,13 @@ const register = async (req, res) => {
       password,
       phone,
       companyName,
-      zoneName,
       address,
       state,
       city,
       pinCode
     } = req.body;
 
-    console.log('Registration data received:', { firstName, lastName, email, companyName, zoneName });
+    console.log('Registration data received:', { firstName, lastName, email, companyName });
 
     // Check if user exists
     const existingUser = await User.findOne({ email });
@@ -40,30 +38,19 @@ const register = async (req, res) => {
       });
     }
 
-    // Create user with firstName and lastName
+    // Create user
     const user = await User.create({
       firstName,
       lastName,
       email,
       password,
       phone,
-      role: 'user' // Default role for new registrations
+      companyName,
+      role: 'user',
+      isActive: true
     });
 
     console.log('User created:', user._id);
-
-    // Create company zone for user
-    const zone = await CompanyZone.create({
-      zoneName,
-      companyName,
-      address,
-      state,
-      city,
-      pinCode,
-      userId: user._id
-    });
-
-    console.log('Zone created:', zone._id);
 
     // Generate token
     const token = generateToken(user._id);
@@ -80,16 +67,8 @@ const register = async (req, res) => {
           email: user.email,
           phone: user.phone,
           role: user.role,
+          companyName: user.companyName,
           createdAt: user.createdAt
-        },
-        zone: {
-          id: zone._id,
-          zoneName: zone.zoneName,
-          companyName: zone.companyName,
-          address: zone.address,
-          state: zone.state,
-          city: zone.city,
-          pinCode: zone.pinCode
         }
       }
     });
@@ -102,12 +81,12 @@ const register = async (req, res) => {
   }
 };
 
-// @desc    Login zone user
+// @desc    Login user
 // @route   POST /api/auth/login
 // @access  Public
 const login = async (req, res) => {
   try {
-    const { email, password, zoneName } = req.body;
+    const { email, password } = req.body;
 
     // Check if user exists with password
     const user = await User.findOne({ email }).select('+password');
@@ -136,28 +115,6 @@ const login = async (req, res) => {
       });
     }
 
-    let zone = null;
-
-    // For super admin, skip zone validation
-    if (user.role === 'super_admin') {
-      console.log('Super admin login - skipping zone validation');
-      // Super admin doesn't need a zone
-      zone = null;
-    } else {
-      // Check if zone exists for regular user
-      zone = await CompanyZone.findOne({ 
-        userId: user._id,
-        zoneName: zoneName 
-      });
-
-      if (!zone) {
-        return res.status(404).json({
-          success: false,
-          message: `Zone '${zoneName}' not found for this user`
-        });
-      }
-    }
-
     // Update last login
     user.lastLogin = new Date();
     await user.save();
@@ -177,19 +134,9 @@ const login = async (req, res) => {
           email: user.email,
           phone: user.phone,
           role: user.role,
+          companyName: user.companyName,
           lastLogin: user.lastLogin
-        },
-        zone: zone ? {
-          id: zone._id,
-          zoneName: zone.zoneName,
-          companyName: zone.companyName,
-          address: zone.address,
-          state: zone.state,
-          city: zone.city,
-          pinCode: zone.pinCode,
-          settings: zone.settings,
-          metadata: zone.metadata
-        } : null
+        }
       }
     });
   } catch (error) {
@@ -208,17 +155,10 @@ const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
     
-    let zone = null;
-    // Only fetch zone for non-super admins
-    if (user.role !== 'super_admin') {
-      zone = await CompanyZone.findOne({ userId: user._id });
-    }
-
     res.status(200).json({
       success: true,
       data: {
-        user,
-        zone: zone || null
+        user
       }
     });
   } catch (error) {
@@ -242,7 +182,7 @@ const logout = async (req, res) => {
 
 // @desc    Create super admin (one-time setup)
 // @route   POST /api/auth/create-super-admin
-// @access  Public (should be disabled after first use)
+// @access  Public
 const createSuperAdmin = async (req, res) => {
   try {
     const { email, password, firstName, lastName, phone } = req.body;
@@ -256,7 +196,7 @@ const createSuperAdmin = async (req, res) => {
       });
     }
 
-    // Create super admin
+    // Create super admin (companyName is not required for super_admin)
     const superAdmin = await User.create({
       firstName: firstName || 'Super',
       lastName: lastName || 'Admin',
@@ -264,7 +204,8 @@ const createSuperAdmin = async (req, res) => {
       password: password || 'Admin@123',
       phone: phone || '9999999999',
       role: 'super_admin',
-      isActive: true
+      isActive: true,
+      companyName: 'Super Admin' // Add a default company name for super admin
     });
 
     res.status(201).json({
