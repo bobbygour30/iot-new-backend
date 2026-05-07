@@ -1,3 +1,4 @@
+// src/models/Zone.js
 const mongoose = require('mongoose');
 
 const zoneSchema = new mongoose.Schema({
@@ -32,7 +33,11 @@ const zoneSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound index for unique zone per plant
+// Only keep this index - remove any other indexes
 zoneSchema.index({ name: 1, plantId: 1 }, { unique: true });
 
-module.exports = mongoose.model('Zone', zoneSchema);
+// Drop the old index if it exists (run this once in MongoDB)
+// db.zones.dropIndex("zoneName_1_userId_1");
+
+const Zone = mongoose.models.Zone || mongoose.model('Zone', zoneSchema);
+module.exports = Zone;

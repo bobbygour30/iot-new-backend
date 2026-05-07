@@ -1,3 +1,4 @@
+// src/controllers/zoneController.js
 const Zone = require('../models/Zone');
 const Device = require('../models/Device');
 
@@ -9,8 +10,23 @@ const createZone = async (req, res) => {
     const { name, area, purpose, plantId } = req.body;
     const userId = req.user.id;
 
+    // Validate required fields
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Zone name is required'
+      });
+    }
+
+    if (!plantId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Plant ID is required'
+      });
+    }
+
     // Check if zone already exists for this plant
-    const existingZone = await Zone.findOne({ name, plantId });
+    const existingZone = await Zone.findOne({ name: name.trim(), plantId });
     if (existingZone) {
       return res.status(400).json({
         success: false,
@@ -19,9 +35,9 @@ const createZone = async (req, res) => {
     }
 
     const zone = await Zone.create({
-      name,
-      area,
-      purpose,
+      name: name.trim(),
+      area: area || '',
+      purpose: purpose || '',
       plantId,
       userId
     });
@@ -33,6 +49,15 @@ const createZone = async (req, res) => {
     });
   } catch (error) {
     console.error('Create zone error:', error);
+    
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'A zone with this name already exists in this plant'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: error.message || 'Server error'
@@ -114,11 +139,13 @@ const getZone = async (req, res) => {
 // @access  Private
 const updateZone = async (req, res) => {
   try {
-    const zone = await Zone.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
-      req.body,
-      { new: true, runValidators: true }
-    );
+    const { name, area, purpose } = req.body;
+    
+    const zone = await Zone.findOne({
+      _id: req.params.id,
+      userId: req.user.id,
+      isActive: true
+    });
 
     if (!zone) {
       return res.status(404).json({
@@ -126,6 +153,27 @@ const updateZone = async (req, res) => {
         message: 'Zone not found'
       });
     }
+
+    // Check if new name conflicts with another zone
+    if (name && name !== zone.name) {
+      const existingZone = await Zone.findOne({
+        name: name.trim(),
+        plantId: zone.plantId,
+        _id: { $ne: zone._id }
+      });
+      if (existingZone) {
+        return res.status(400).json({
+          success: false,
+          message: 'Zone with this name already exists in this plant'
+        });
+      }
+      zone.name = name.trim();
+    }
+
+    if (area !== undefined) zone.area = area;
+    if (purpose !== undefined) zone.purpose = purpose;
+    
+    await zone.save();
 
     res.status(200).json({
       success: true,
