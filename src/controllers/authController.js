@@ -1,13 +1,96 @@
-// src/controllers/authController.js
+// src/controllers/authController.js - Fix getMe function
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const database = require('../config/database');
 
 // Generate JWT Token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE
   });
+};
+
+// @desc    Register new user
+// @route   POST /api/auth/register
+// @access  Public
+const register = async (req, res) => {
+  try {
+    const {
+      firstName,
+      lastName,
+      email,
+      password,
+      phone,
+      companyName
+    } = req.body;
+
+    console.log('Registration data received:', { firstName, lastName, email, companyName });
+
+    // Check if user exists
+    const existingUser = await User.findOne({ email }).maxTimeMS(5000);
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this email'
+      });
+    }
+
+    // Create user
+    const user = await User.create({
+      firstName,
+      lastName,
+      email,
+      password,
+      phone,
+      companyName,
+      role: 'user',
+      isActive: true
+    });
+
+    console.log('User created:', user._id);
+
+    // Generate token
+    const token = generateToken(user._id);
+
+    res.status(201).json({
+      success: true,
+      message: 'Registration successful!',
+      data: {
+        token,
+        user: {
+          id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          companyName: user.companyName,
+          createdAt: user.createdAt
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Register error:', error);
+    
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: messages.join(', ')
+      });
+    }
+    
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already exists'
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error during registration'
+    });
+  }
 };
 
 // @desc    Login user
@@ -17,25 +100,10 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check database connection first
-    if (!database.isConnected()) {
-      console.log('Database not connected, attempting to reconnect...');
-      await database.connect();
-      if (!database.isConnected()) {
-        return res.status(503).json({
-          success: false,
-          message: 'Database connection unavailable. Please try again later.'
-        });
-      }
-    }
-
-    // Set a timeout for the database operation
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Database operation timeout')), 15000);
-    });
-
-    const userPromise = User.findOne({ email }).select('+password');
-    const user = await Promise.race([userPromise, timeoutPromise]);
+    // Check if user exists with password
+    const user = await User.findOne({ email })
+      .select('+password')
+      .maxTimeMS(5000);
     
     if (!user) {
       return res.status(401).json({
@@ -88,13 +156,6 @@ const login = async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     
-    if (error.message === 'Database operation timeout') {
-      return res.status(503).json({
-        success: false,
-        message: 'Database connection timeout. Please try again.'
-      });
-    }
-    
     if (error.name === 'MongooseError' && error.message.includes('buffering')) {
       return res.status(503).json({
         success: false,
@@ -109,102 +170,12 @@ const login = async (req, res) => {
   }
 };
 
-// @desc    Register new user
-// @route   POST /api/auth/register
-// @access  Public
-const register = async (req, res) => {
-  try {
-    const {
-      firstName,
-      lastName,
-      email,
-      password,
-      phone,
-      companyName
-    } = req.body;
-
-    // Check database connection first
-    if (!database.isConnected()) {
-      await database.connect();
-      if (!database.isConnected()) {
-        return res.status(503).json({
-          success: false,
-          message: 'Database connection unavailable. Please try again later.'
-        });
-      }
-    }
-
-    // Check if user exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'User already exists with this email'
-      });
-    }
-
-    // Create user
-    const user = await User.create({
-      firstName,
-      lastName,
-      email,
-      password,
-      phone,
-      companyName,
-      role: 'user',
-      isActive: true
-    });
-
-    // Generate token
-    const token = generateToken(user._id);
-
-    res.status(201).json({
-      success: true,
-      message: 'Registration successful!',
-      data: {
-        token,
-        user: {
-          id: user._id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
-          companyName: user.companyName,
-          createdAt: user.createdAt
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Register error:', error);
-    
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        message: messages.join(', ')
-      });
-    }
-    
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email already exists'
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error during registration'
-    });
-  }
-};
-
-// @desc    Get current logged in user
+// @desc    Get current logged in user - FIXED
 // @route   GET /api/auth/me
 // @access  Private
 const getMe = async (req, res) => {
   try {
+    // Check if user exists in request (set by auth middleware)
     if (!req.user) {
       return res.status(401).json({
         success: false,
@@ -212,8 +183,10 @@ const getMe = async (req, res) => {
       });
     }
     
+    // Get user from database
     const user = await User.findById(req.user._id || req.user.id)
-      .select('-password');
+      .select('-password')
+      .maxTimeMS(5000);
     
     if (!user) {
       return res.status(404).json({
@@ -266,7 +239,7 @@ const createSuperAdmin = async (req, res) => {
     const { email, password, firstName, lastName, phone } = req.body;
 
     // Check if super admin already exists
-    const existingAdmin = await User.findOne({ role: 'super_admin' });
+    const existingAdmin = await User.findOne({ role: 'super_admin' }).maxTimeMS(5000);
     if (existingAdmin) {
       return res.status(400).json({
         success: false,
