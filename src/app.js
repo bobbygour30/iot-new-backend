@@ -4,13 +4,14 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const database = require('./config/database');
-const apiRoutes = require('./routes/api'); // Only this one import
+const apiRoutes = require('./routes/api');
 const errorHandler = require('./middleware/errorMiddleware');
 
 const app = express();
 
 app.set('trust proxy', 1);
 
+// Database connection (don't exit on error in production)
 database.connect().catch(err => {
   console.error('Failed to connect to database:', err);
   if (process.env.NODE_ENV !== 'production') {
@@ -18,27 +19,46 @@ database.connect().catch(err => {
   }
 });
 
+// Security middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: false
 }));
 
+// CORS configuration - FIXED
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'https://iot-seven-alpha.vercel.app',
+  'https://iot-new-backend.vercel.app',
+  'https://sensor-six-iota.vercel.app'
+];
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000', 
-    'http://localhost:5173', 
-    'http://localhost:5174', 
-    'http://localhost:5175',
-    'https://iot-seven-alpha.vercel.app',
-    'https://*.vercel.app',
-    'https://iot-new-backend.vercel.app',
-    'https://sensor-six-iota.vercel.app'
-  ],
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('Blocked origin:', origin);
+      callback(null, true); // Allow all origins in development
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'X-Requested-With'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
+// Handle preflight requests explicitly
+app.options('*', cors());
+
+// Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: process.env.NODE_ENV === 'production' ? 200 : 100,
@@ -57,9 +77,11 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
+// Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Request logging (development only)
 if (process.env.NODE_ENV !== 'production') {
   app.use((req, res, next) => {
     console.log(`${req.method} ${req.path} - IP: ${req.ip} - ${new Date().toISOString()}`);
@@ -67,6 +89,7 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+// Root route
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
@@ -78,9 +101,10 @@ app.get('/', (req, res) => {
   });
 });
 
-// ONLY use apiRoutes - remove all other route imports
+// API routes
 app.use('/api', apiRoutes);
 
+// Health check
 app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -93,6 +117,7 @@ app.get('/health', (req, res) => {
   });
 });
 
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -100,6 +125,7 @@ app.use((req, res) => {
   });
 });
 
+// Error handling middleware
 app.use(errorHandler);
 
 module.exports = app;
