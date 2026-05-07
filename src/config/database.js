@@ -8,11 +8,13 @@ class Database {
   }
 
   async connect() {
-    if (this.connection) {
+    // If already connected, return
+    if (this.connection && this.connection.readyState === 1) {
       console.log('Using existing database connection');
       return this.connection;
     }
 
+    // If currently connecting, wait for it
     if (this.isConnecting) {
       console.log('Database connection in progress, waiting...');
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -31,12 +33,16 @@ class Database {
         throw new Error('MONGODB_URI is not defined in environment variables.');
       }
 
-      // Removed deprecated options (useNewUrlParser, useUnifiedTopology)
+      // Optimized options for serverless environment
       const options = {
-        serverSelectionTimeoutMS: 5000,
+        serverSelectionTimeoutMS: 10000, // Increased from 5000
         socketTimeoutMS: 45000,
-        maxPoolSize: 10,
-        minPoolSize: 2,
+        connectTimeoutMS: 10000,
+        maxPoolSize: 1, // Reduced for serverless
+        minPoolSize: 0,
+        heartbeatFrequencyMS: 30000,
+        retryWrites: true,
+        retryReads: true,
       };
 
       const conn = await mongoose.connect(MONGODB_URI, options);
@@ -63,12 +69,10 @@ class Database {
       this.isConnecting = false;
       console.error('❌ MongoDB connection error:', error.message);
       
-      if (process.env.NODE_ENV === 'production') {
-        console.error('Continuing without database connection...');
-        return null;
-      }
-      
-      throw error;
+      // Don't throw in production, just log and return null
+      // This allows the app to start even if DB connection fails
+      console.error('Continuing without database connection...');
+      return null;
     }
   }
 
@@ -78,6 +82,11 @@ class Database {
       this.connection = null;
       console.log('Database disconnected');
     }
+  }
+
+  // Helper to check if connected
+  isConnected() {
+    return this.connection && this.connection.readyState === 1;
   }
 }
 
