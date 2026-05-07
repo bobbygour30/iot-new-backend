@@ -4,15 +4,13 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const database = require('./config/database');
-const apiRoutes = require('./routes/api');
+const apiRoutes = require('./routes/api'); // Only this one import
 const errorHandler = require('./middleware/errorMiddleware');
 
 const app = express();
 
-// Enable trust proxy for Vercel
 app.set('trust proxy', 1);
 
-// Connect to database
 database.connect().catch(err => {
   console.error('Failed to connect to database:', err);
   if (process.env.NODE_ENV !== 'production') {
@@ -20,13 +18,11 @@ database.connect().catch(err => {
   }
 });
 
-// Security middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: false
 }));
 
-// CORS configuration
 app.use(cors({
   origin: [
     'http://localhost:3000', 
@@ -34,7 +30,6 @@ app.use(cors({
     'http://localhost:5174', 
     'http://localhost:5175',
     'https://iot-seven-alpha.vercel.app',
-    'https://sensor-six-iota.vercel.app',
     'https://*.vercel.app'
   ],
   credentials: true,
@@ -42,18 +37,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Fixed Rate limiting - removed invalid validate options
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: process.env.NODE_ENV === 'production' ? 200 : 100,
   message: 'Too many requests from this IP, please try again later.',
   skip: (req) => req.path === '/health',
-  // Only use valid validate options
   validate: {
     trustProxy: false,
     xForwardedForHeader: false,
     limit: false
-    // Removed 'forwardedHeader' as it doesn't exist in this version
   },
   keyGenerator: (req) => {
     const forwarded = req.headers['x-forwarded-for'];
@@ -63,11 +55,9 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
-// Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Request logging middleware (only in development)
 if (process.env.NODE_ENV !== 'production') {
   app.use((req, res, next) => {
     console.log(`${req.method} ${req.path} - IP: ${req.ip} - ${new Date().toISOString()}`);
@@ -75,7 +65,6 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// ==================== ROOT ROUTE ====================
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
@@ -87,10 +76,9 @@ app.get('/', (req, res) => {
   });
 });
 
-// ==================== API ROUTES ====================
+// ONLY use apiRoutes - remove all other route imports
 app.use('/api', apiRoutes);
 
-// ==================== HEALTH CHECK ====================
 app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -103,7 +91,6 @@ app.get('/health', (req, res) => {
   });
 });
 
-// ==================== 404 HANDLER ====================
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -111,7 +98,6 @@ app.use((req, res) => {
   });
 });
 
-// ==================== ERROR HANDLING MIDDLEWARE ====================
 app.use(errorHandler);
 
 module.exports = app;

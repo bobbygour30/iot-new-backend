@@ -7,6 +7,14 @@ const Device = require('../models/Device');
 // @access  Private/Super Admin
 const getAllPlants = async (req, res) => {
   try {
+    // Check if user is authenticated
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+    
     const plants = await Plant.find().sort({ createdAt: -1 });
     
     // Get device count for each plant
@@ -36,20 +44,28 @@ const getAllPlants = async (req, res) => {
 // @access  Private/Super Admin
 const createPlant = async (req, res) => {
   try {
-    const { name, location, description, status } = req.body;
-    
-    // Fix: Access user id correctly from req.user
-    const userId = req.user?._id || req.user?.id;
-    
-    if (!userId) {
+    // Check if user is authenticated
+    if (!req.user) {
       return res.status(401).json({
         success: false,
         message: 'User not authenticated'
       });
     }
     
+    const { name, location, description, status } = req.body;
+    
+    // Validate required fields
+    if (!name || name.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Plant name is required'
+      });
+    }
+    
+    const userId = req.user._id || req.user.id;
+    
     const plant = await Plant.create({
-      name,
+      name: name.trim(),
       location: location || '',
       description: description || '',
       isActive: status === 'active',
@@ -63,6 +79,15 @@ const createPlant = async (req, res) => {
     });
   } catch (error) {
     console.error('Create plant error:', error);
+    
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'A plant with this name already exists'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: error.message
@@ -75,6 +100,14 @@ const createPlant = async (req, res) => {
 // @access  Private/Super Admin
 const updatePlant = async (req, res) => {
   try {
+    // Check if user is authenticated
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+    
     const { name, location, description, isActive } = req.body;
     
     const plant = await Plant.findById(req.params.id);
@@ -112,6 +145,14 @@ const updatePlant = async (req, res) => {
 // @access  Private/Super Admin
 const deletePlant = async (req, res) => {
   try {
+    // Check if user is authenticated
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+    
     const plant = await Plant.findByIdAndDelete(req.params.id);
     
     if (!plant) {

@@ -1,4 +1,4 @@
-// src/controllers/authController.js
+// src/controllers/authController.js - Fix getMe function
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
@@ -25,7 +25,7 @@ const register = async (req, res) => {
 
     console.log('Registration data received:', { firstName, lastName, email, companyName });
 
-    // Check if user exists with timeout
+    // Check if user exists
     const existingUser = await User.findOne({ email }).maxTimeMS(5000);
     if (existingUser) {
       return res.status(400).json({
@@ -71,7 +71,6 @@ const register = async (req, res) => {
   } catch (error) {
     console.error('Register error:', error);
     
-    // Handle mongoose validation errors
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
@@ -80,7 +79,6 @@ const register = async (req, res) => {
       });
     }
     
-    // Handle duplicate key error
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
@@ -102,7 +100,7 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check if user exists with timeout to prevent buffering
+    // Check if user exists with password
     const user = await User.findOne({ email })
       .select('+password')
       .maxTimeMS(5000);
@@ -158,7 +156,6 @@ const login = async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     
-    // Handle timeout errors
     if (error.name === 'MongooseError' && error.message.includes('buffering')) {
       return res.status(503).json({
         success: false,
@@ -173,12 +170,21 @@ const login = async (req, res) => {
   }
 };
 
-// @desc    Get current logged in user
+// @desc    Get current logged in user - FIXED
 // @route   GET /api/auth/me
 // @access  Private
 const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id)
+    // Check if user exists in request (set by auth middleware)
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+    
+    // Get user from database
+    const user = await User.findById(req.user._id || req.user.id)
       .select('-password')
       .maxTimeMS(5000);
     
@@ -192,14 +198,25 @@ const getMe = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        user
+        user: {
+          id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          companyName: user.companyName,
+          isActive: user.isActive,
+          createdAt: user.createdAt,
+          lastLogin: user.lastLogin
+        }
       }
     });
   } catch (error) {
     console.error('Get me error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: error.message || 'Server error'
     });
   }
 };
