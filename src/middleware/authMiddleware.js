@@ -1,3 +1,4 @@
+// src/middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
@@ -37,8 +38,13 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
-    // Attach user to request
-    req.user = user;
+    // Attach user to request with both _id and id for compatibility
+    req.user = {
+      ...user.toObject(),
+      id: user._id,
+      _id: user._id
+    };
+    
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
@@ -65,6 +71,13 @@ const authMiddleware = async (req, res, next) => {
 // Role-based authorization middleware
 const authorize = (...roles) => {
   return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+    
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,

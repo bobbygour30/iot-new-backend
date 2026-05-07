@@ -20,17 +20,13 @@ const register = async (req, res) => {
       email,
       password,
       phone,
-      companyName,
-      address,
-      state,
-      city,
-      pinCode
+      companyName
     } = req.body;
 
     console.log('Registration data received:', { firstName, lastName, email, companyName });
 
-    // Check if user exists
-    const existingUser = await User.findOne({ email });
+    // Check if user exists with timeout
+    const existingUser = await User.findOne({ email }).maxTimeMS(5000);
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -74,6 +70,24 @@ const register = async (req, res) => {
     });
   } catch (error) {
     console.error('Register error:', error);
+    
+    // Handle mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: messages.join(', ')
+      });
+    }
+    
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already exists'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: error.message || 'Server error during registration'
@@ -88,8 +102,10 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check if user exists with password
-    const user = await User.findOne({ email }).select('+password');
+    // Check if user exists with timeout to prevent buffering
+    const user = await User.findOne({ email })
+      .select('+password')
+      .maxTimeMS(5000);
     
     if (!user) {
       return res.status(401).json({
@@ -141,6 +157,15 @@ const login = async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
+    
+    // Handle timeout errors
+    if (error.name === 'MongooseError' && error.message.includes('buffering')) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection issue. Please try again.'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: error.message || 'Server error during login'
@@ -153,7 +178,16 @@ const login = async (req, res) => {
 // @access  Private
 const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
+    const user = await User.findById(req.user.id)
+      .select('-password')
+      .maxTimeMS(5000);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
     
     res.status(200).json({
       success: true,
@@ -188,7 +222,7 @@ const createSuperAdmin = async (req, res) => {
     const { email, password, firstName, lastName, phone } = req.body;
 
     // Check if super admin already exists
-    const existingAdmin = await User.findOne({ role: 'super_admin' });
+    const existingAdmin = await User.findOne({ role: 'super_admin' }).maxTimeMS(5000);
     if (existingAdmin) {
       return res.status(400).json({
         success: false,
@@ -196,7 +230,7 @@ const createSuperAdmin = async (req, res) => {
       });
     }
 
-    // Create super admin (companyName is not required for super_admin)
+    // Create super admin
     const superAdmin = await User.create({
       firstName: firstName || 'Super',
       lastName: lastName || 'Admin',
@@ -205,7 +239,7 @@ const createSuperAdmin = async (req, res) => {
       phone: phone || '9999999999',
       role: 'super_admin',
       isActive: true,
-      companyName: 'Super Admin' // Add a default company name for super admin
+      companyName: 'Super Admin'
     });
 
     res.status(201).json({

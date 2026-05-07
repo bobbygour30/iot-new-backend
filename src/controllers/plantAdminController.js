@@ -36,15 +36,24 @@ const getAllPlants = async (req, res) => {
 // @access  Private/Super Admin
 const createPlant = async (req, res) => {
   try {
-    const { name, type, location, description, zone, status } = req.body;
+    const { name, location, description, status } = req.body;
+    
+    // Fix: Access user id correctly from req.user
+    const userId = req.user?._id || req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
     
     const plant = await Plant.create({
       name,
-      type,
-      location,
-      description,
+      location: location || '',
+      description: description || '',
       isActive: status === 'active',
-      userId: req.user.id
+      userId: userId
     });
     
     res.status(201).json({
@@ -66,11 +75,9 @@ const createPlant = async (req, res) => {
 // @access  Private/Super Admin
 const updatePlant = async (req, res) => {
   try {
-    const plant = await Plant.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
+    const { name, location, description, isActive } = req.body;
+    
+    const plant = await Plant.findById(req.params.id);
     
     if (!plant) {
       return res.status(404).json({
@@ -78,6 +85,13 @@ const updatePlant = async (req, res) => {
         message: 'Plant not found'
       });
     }
+    
+    if (name) plant.name = name;
+    if (location !== undefined) plant.location = location;
+    if (description !== undefined) plant.description = description;
+    if (isActive !== undefined) plant.isActive = isActive;
+    
+    await plant.save();
     
     res.status(200).json({
       success: true,

@@ -1,3 +1,4 @@
+// src/models/Device.js
 const mongoose = require('mongoose');
 
 const deviceSchema = new mongoose.Schema({
@@ -81,8 +82,7 @@ const deviceSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for faster queries
-deviceSchema.index({ deviceId: 1 });
+// Index for faster queries - removed duplicate deviceId index since unique: true already creates it
 deviceSchema.index({ plantId: 1, zoneId: 1 });
 deviceSchema.index({ status: 1 });
 deviceSchema.index({ userId: 1 });

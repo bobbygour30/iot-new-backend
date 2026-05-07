@@ -35,10 +35,10 @@ const userSchema = new mongoose.Schema({
   companyName: {
     type: String,
     required: function() {
-      // companyName is only required for regular users, not for super_admin
       return this.role !== 'super_admin';
     },
-    trim: true
+    trim: true,
+    default: null
   },
   role: {
     type: String,
@@ -50,7 +50,8 @@ const userSchema = new mongoose.Schema({
     default: true
   },
   lastLogin: {
-    type: Date
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true
@@ -73,6 +74,9 @@ userSchema.pre('save', async function(next) {
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
+
+// Ensure indexes are created
+userSchema.index({ email: 1 }, { unique: true });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 module.exports = User;

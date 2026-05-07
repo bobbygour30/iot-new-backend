@@ -1,8 +1,10 @@
+// src/config/database.js
 const mongoose = require('mongoose');
 
 class Database {
   constructor() {
     this.connection = null;
+    this.isConnecting = false;
   }
 
   async connect() {
@@ -11,6 +13,14 @@ class Database {
       return this.connection;
     }
 
+    if (this.isConnecting) {
+      console.log('Database connection in progress, waiting...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return this.connect();
+    }
+
+    this.isConnecting = true;
+
     try {
       const MONGODB_URI = process.env.MONGODB_URI;
       
@@ -18,32 +28,47 @@ class Database {
       console.log('MONGODB_URI exists:', !!MONGODB_URI);
       
       if (!MONGODB_URI) {
-        throw new Error('MONGODB_URI is not defined in environment variables. Please check your .env file.');
+        throw new Error('MONGODB_URI is not defined in environment variables.');
       }
 
+      // Removed deprecated options (useNewUrlParser, useUnifiedTopology)
       const options = {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,
+        maxPoolSize: 10,
+        minPoolSize: 2,
       };
 
       const conn = await mongoose.connect(MONGODB_URI, options);
       this.connection = conn;
+      this.isConnecting = false;
       
       console.log('✅ MongoDB connected successfully');
       console.log(`📦 Database: ${conn.connection.name}`);
       console.log(`🔗 Host: ${conn.connection.host}`);
       
+      // Handle connection errors after initial connection
+      mongoose.connection.on('error', (err) => {
+        console.error('MongoDB connection error after connect:', err);
+        this.connection = null;
+      });
+
+      mongoose.connection.on('disconnected', () => {
+        console.log('MongoDB disconnected');
+        this.connection = null;
+      });
+      
       return conn;
     } catch (error) {
+      this.isConnecting = false;
       console.error('❌ MongoDB connection error:', error.message);
-      if (error.message.includes('ENOTFOUND')) {
-        console.error('Network error: Unable to reach MongoDB server. Check your internet connection.');
-      } else if (error.message.includes('Authentication failed')) {
-        console.error('Authentication failed: Check your username and password in MONGODB_URI');
+      
+      if (process.env.NODE_ENV === 'production') {
+        console.error('Continuing without database connection...');
+        return null;
       }
-      throw error; // Don't exit process here, let the caller handle it
+      
+      throw error;
     }
   }
 

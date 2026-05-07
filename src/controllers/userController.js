@@ -31,7 +31,8 @@ const getAllUsers = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .select('-password');
+      .select('-password')
+      .maxTimeMS(5000);
     
     const total = await User.countDocuments(query);
     
@@ -58,7 +59,9 @@ const getAllUsers = async (req, res) => {
 // @access  Private/Super Admin
 const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findById(req.params.id)
+      .select('-password')
+      .maxTimeMS(5000);
     
     if (!user) {
       return res.status(404).json({
@@ -85,9 +88,9 @@ const getUserById = async (req, res) => {
 // @access  Private/Super Admin
 const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, password, phone, role, zone } = req.body;
+    const { firstName, lastName, email, password, phone, role } = req.body;
     
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email }).maxTimeMS(5000);
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -102,7 +105,8 @@ const createUser = async (req, res) => {
       password,
       phone,
       role: role || 'user',
-      isActive: true
+      isActive: true,
+      companyName: null
     });
     
     res.status(201).json({
