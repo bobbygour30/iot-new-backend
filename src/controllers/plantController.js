@@ -8,7 +8,7 @@ const Device = require('../models/Device');
 // @access  Private
 const createPlant = async (req, res) => {
   try {
-    const { name, location, description } = req.body;
+    const { name, city, state, address, description } = req.body;
     const userId = req.user.id;
 
     // Check if plant already exists for this user
@@ -22,8 +22,10 @@ const createPlant = async (req, res) => {
 
     const plant = await Plant.create({
       name,
-      location,
-      description,
+      city: city || '',
+      state: state || '',
+      address: address || '',
+      description: description || '',
       userId
     });
 

@@ -7,7 +7,15 @@ const plantSchema = new mongoose.Schema({
     required: [true, 'Plant name is required'],
     trim: true
   },
-  location: {
+  city: {
+    type: String,
+    trim: true
+  },
+  state: {
+    type: String,
+    trim: true
+  },
+  address: {
     type: String,
     trim: true
   },
