@@ -7,15 +7,15 @@ const Plant = require('../models/Plant');
 // @access  Private
 const registerDevice = async (req, res) => {
   try {
-    const { deviceId, type, model, location, thresholds, plantId, zoneId } = req.body;
+    const { deviceId, type, plantId, zoneId } = req.body;
     const userId = req.user.id;
 
-    // Check if device already exists
-    const existingDevice = await Device.findOne({ deviceId });
+    // Check if device already exists for this user
+    const existingDevice = await Device.findOne({ deviceId, userId, isActive: true });
     if (existingDevice) {
       return res.status(400).json({
         success: false,
-        message: 'Device with this ID already exists'
+        message: 'Device with this ID already exists in your account'
       });
     }
 
@@ -38,13 +38,11 @@ const registerDevice = async (req, res) => {
 
     const device = await Device.create({
       deviceId,
-      type,
-      model,
-      location,
-      thresholds,
+      type: type || 'Multi-Sensor',
       plantId,
       zoneId,
-      userId
+      userId,
+      status: 'offline'
     });
 
     res.status(201).json({
@@ -54,6 +52,12 @@ const registerDevice = async (req, res) => {
     });
   } catch (error) {
     console.error('Register device error:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Device with this ID already exists'
+      });
+    }
     res.status(500).json({
       success: false,
       message: error.message || 'Server error'
@@ -145,11 +149,13 @@ const getDevice = async (req, res) => {
 // @access  Private
 const updateDevice = async (req, res) => {
   try {
-    const device = await Device.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
-      req.body,
-      { new: true, runValidators: true }
-    );
+    const { deviceId, type, model, location, thresholds } = req.body;
+    
+    const device = await Device.findOne({
+      _id: req.params.id,
+      userId: req.user.id,
+      isActive: true
+    });
 
     if (!device) {
       return res.status(404).json({
@@ -158,6 +164,34 @@ const updateDevice = async (req, res) => {
       });
     }
 
+    // Check if new deviceId conflicts with another device
+    if (deviceId && deviceId !== device.deviceId) {
+      const existingDevice = await Device.findOne({
+        deviceId,
+        userId: req.user.id,
+        _id: { $ne: device._id }
+      });
+      if (existingDevice) {
+        return res.status(400).json({
+          success: false,
+          message: 'Device with this ID already exists'
+        });
+      }
+      device.deviceId = deviceId;
+    }
+
+    if (type) device.type = type;
+    if (model !== undefined) device.model = model;
+    if (location !== undefined) device.location = location;
+    if (thresholds) {
+      device.thresholds = {
+        ...device.thresholds,
+        ...thresholds
+      };
+    }
+    
+    await device.save();
+
     res.status(200).json({
       success: true,
       message: 'Device updated successfully',
@@ -165,6 +199,12 @@ const updateDevice = async (req, res) => {
     });
   } catch (error) {
     console.error('Update device error:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Device with this ID already exists'
+      });
+    }
     res.status(500).json({
       success: false,
       message: error.message || 'Server error'
@@ -203,9 +243,9 @@ const deleteDevice = async (req, res) => {
   }
 };
 
-// @desc    Update device last reading
+// @desc    Update device last reading (for sensor data)
 // @route   POST /api/devices/:deviceId/reading
-// @access  Public (for sensor data)
+// @access  Public
 const updateDeviceReading = async (req, res) => {
   try {
     const { temperature, humidity, voc } = req.body;
@@ -225,14 +265,45 @@ const updateDeviceReading = async (req, res) => {
       voc,
       timestamp: new Date()
     };
+    
+    // Auto-update status based on recent reading
+    device.status = 'online';
     await device.save();
 
     res.status(200).json({
       success: true,
-      message: 'Device reading updated'
+      message: 'Device reading updated',
+      data: device
     });
   } catch (error) {
     console.error('Update device reading error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+// @desc    Get device by deviceId (for validation)
+// @route   GET /api/devices/validate/:deviceId
+// @access  Private
+const validateDeviceId = async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const userId = req.user.id;
+
+    // Check if device already exists for this user
+    const existingDevice = await Device.findOne({ deviceId, userId, isActive: true });
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        exists: !!existingDevice,
+        device: existingDevice
+      }
+    });
+  } catch (error) {
+    console.error('Validate device error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -247,5 +318,6 @@ module.exports = {
   getDevice,
   updateDevice,
   deleteDevice,
-  updateDeviceReading
+  updateDeviceReading,
+  validateDeviceId
 };

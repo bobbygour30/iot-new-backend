@@ -11,7 +11,6 @@ const createPlant = async (req, res) => {
     const { name, city, state, address, description } = req.body;
     const userId = req.user.id;
 
-    // Check if plant already exists for this user
     const existingPlant = await Plant.findOne({ name, userId });
     if (existingPlant) {
       return res.status(400).json({
@@ -51,7 +50,6 @@ const getPlants = async (req, res) => {
     const plants = await Plant.find({ userId: req.user.id, isActive: true })
       .sort({ createdAt: -1 });
 
-    // Get zones and devices count for each plant
     const plantsWithStats = await Promise.all(plants.map(async (plant) => {
       const zones = await Zone.find({ plantId: plant._id, isActive: true });
       const devices = await Device.find({ plantId: plant._id, isActive: true });
@@ -164,7 +162,6 @@ const deletePlant = async (req, res) => {
       });
     }
 
-    // Soft delete all zones and devices under this plant
     await Zone.updateMany(
       { plantId: plant._id },
       { isActive: false }

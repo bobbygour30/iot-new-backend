@@ -10,16 +10,17 @@ const deviceSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    required: [true, 'Device type is required'],
     enum: ['Temperature Sensor', 'Humidity Sensor', 'VOC Sensor', 'Multi-Sensor'],
     default: 'Multi-Sensor'
   },
   model: {
     type: String,
+    default: '',
     trim: true
   },
   location: {
     type: String,
+    default: '',
     trim: true
   },
   thresholds: {
@@ -82,40 +83,11 @@ const deviceSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for faster queries - removed duplicate deviceId index since unique: true already creates it
+// Indexes
+deviceSchema.index({ deviceId: 1 });
 deviceSchema.index({ plantId: 1, zoneId: 1 });
 deviceSchema.index({ status: 1 });
 deviceSchema.index({ userId: 1 });
-
-// Virtual for device age
-deviceSchema.virtual('age').get(function() {
-  return Math.floor((Date.now() - this.createdAt) / (1000 * 60 * 60 * 24));
-});
-
-// Method to update device status based on last reading
-deviceSchema.methods.updateStatusFromReading = function() {
-  if (!this.lastReading.timestamp) {
-    this.status = 'offline';
-  } else {
-    const minutesSinceLastReading = (Date.now() - new Date(this.lastReading.timestamp)) / (1000 * 60);
-    if (minutesSinceLastReading > 10) {
-      this.status = 'offline';
-    } else {
-      this.status = 'online';
-    }
-  }
-  return this.save();
-};
-
-// Static method to get device statistics
-deviceSchema.statics.getStatistics = async function() {
-  const total = await this.countDocuments();
-  const online = await this.countDocuments({ status: 'online' });
-  const offline = await this.countDocuments({ status: 'offline' });
-  const maintenance = await this.countDocuments({ status: 'maintenance' });
-  
-  return { total, online, offline, maintenance };
-};
 
 const Device = mongoose.models.Device || mongoose.model('Device', deviceSchema);
 module.exports = Device;

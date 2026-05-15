@@ -40,13 +40,15 @@ router.put('/zones/:id', authMiddleware, zoneController.updateZone);
 router.delete('/zones/:id', authMiddleware, zoneController.deleteZone);
 
 // ==================== USER DEVICE ROUTES ====================
+// ==================== USER DEVICE ROUTES ====================
 router.get('/devices/zone/:zoneId', authMiddleware, deviceController.getDevicesByZone);
 router.get('/devices/plant/:plantId', authMiddleware, deviceController.getDevicesByPlant);
 router.get('/devices/:id', authMiddleware, deviceController.getDevice);
+router.get('/devices/validate/:deviceId', authMiddleware, deviceController.validateDeviceId);
 router.post('/devices', authMiddleware, deviceController.registerDevice);
 router.put('/devices/:id', authMiddleware, deviceController.updateDevice);
 router.delete('/devices/:id', authMiddleware, deviceController.deleteDevice);
-router.post('/devices/:deviceId/reading', deviceController.updateDeviceReading); // Public
+
 
 // ==================== ADMIN ROUTES (require super_admin role) ====================
 const adminAuth = [authMiddleware, authorize('super_admin')];
