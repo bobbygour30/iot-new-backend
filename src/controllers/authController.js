@@ -1,4 +1,3 @@
-// src/controllers/authController.js - Fix getMe function
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
@@ -9,32 +8,38 @@ const generateToken = (id) => {
   });
 };
 
-// @desc    Register new user
-// @route   POST /api/auth/register
-// @access  Public
+// @desc Register new user
+// @route POST /api/auth/register
+// @access Public
 const register = async (req, res) => {
   try {
-    const {
-      firstName,
-      lastName,
-      email,
-      password,
-      phone,
-      companyName
+    const { 
+      firstName, 
+      lastName, 
+      email, 
+      password, 
+      phone, 
+      companyName,
+      address,
+      state,
+      city,
+      pinCode 
     } = req.body;
 
-    console.log('Registration data received:', { firstName, lastName, email, companyName });
+    console.log('Registration data received:', { 
+      firstName, lastName, email, companyName, state, city, address, pinCode
+    });
 
     // Check if user exists
     const existingUser = await User.findOne({ email }).maxTimeMS(5000);
     if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'User already exists with this email'
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User already exists with this email' 
       });
     }
 
-    // Create user
+    // Create user with all fields
     const user = await User.create({
       firstName,
       lastName,
@@ -42,6 +47,10 @@ const register = async (req, res) => {
       password,
       phone,
       companyName,
+      address: address || '',
+      state: state || '',
+      city: city || '',
+      pinCode: pinCode || '',
       role: 'user',
       isActive: true
     });
@@ -62,33 +71,28 @@ const register = async (req, res) => {
           lastName: user.lastName,
           email: user.email,
           phone: user.phone,
-          role: user.role,
           companyName: user.companyName,
+          address: user.address,
+          state: user.state,
+          city: user.city,
+          pinCode: user.pinCode,
+          role: user.role,
           createdAt: user.createdAt
         }
       }
     });
   } catch (error) {
     console.error('Register error:', error);
-    
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        message: messages.join(', ')
-      });
+      return res.status(400).json({ success: false, message: messages.join(', ') });
     }
-    
     if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email already exists'
-      });
+      return res.status(400).json({ success: false, message: 'Email already exists' });
     }
-    
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error during registration'
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Server error during registration' 
     });
   }
 };
@@ -149,6 +153,10 @@ const login = async (req, res) => {
           phone: user.phone,
           role: user.role,
           companyName: user.companyName,
+          address: user.address,
+          state: user.state,
+          city: user.city,
+          pinCode: user.pinCode,
           lastLogin: user.lastLogin
         }
       }
@@ -170,31 +178,23 @@ const login = async (req, res) => {
   }
 };
 
-// @desc    Get current logged in user - FIXED
-// @route   GET /api/auth/me
-// @access  Private
+// @desc Get current logged in user
+// @route GET /api/auth/me
+// @access Private
 const getMe = async (req, res) => {
   try {
-    // Check if user exists in request (set by auth middleware)
     if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not authenticated'
-      });
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
     }
-    
-    // Get user from database
+
     const user = await User.findById(req.user._id || req.user.id)
       .select('-password')
       .maxTimeMS(5000);
-    
+
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
-    
+
     res.status(200).json({
       success: true,
       data: {
@@ -204,8 +204,12 @@ const getMe = async (req, res) => {
           lastName: user.lastName,
           email: user.email,
           phone: user.phone,
-          role: user.role,
           companyName: user.companyName,
+          address: user.address,
+          state: user.state,
+          city: user.city,
+          pinCode: user.pinCode,
+          role: user.role,
           isActive: user.isActive,
           createdAt: user.createdAt,
           lastLogin: user.lastLogin
@@ -214,10 +218,7 @@ const getMe = async (req, res) => {
     });
   } catch (error) {
     console.error('Get me error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error'
-    });
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 };
 
@@ -247,7 +248,7 @@ const createSuperAdmin = async (req, res) => {
       });
     }
 
-    // Create super admin
+    // Create super admin (no location fields required)
     const superAdmin = await User.create({
       firstName: firstName || 'Super',
       lastName: lastName || 'Admin',
@@ -256,7 +257,11 @@ const createSuperAdmin = async (req, res) => {
       phone: phone || '9999999999',
       role: 'super_admin',
       isActive: true,
-      companyName: 'Super Admin'
+      companyName: 'Super Admin',
+      address: '',
+      state: '',
+      city: '',
+      pinCode: ''
     });
 
     res.status(201).json({

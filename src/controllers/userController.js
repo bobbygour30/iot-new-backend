@@ -1,4 +1,3 @@
-// src/controllers/userController.js
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 
@@ -15,7 +14,10 @@ const getAllUsers = async (req, res) => {
       query.$or = [
         { firstName: { $regex: search, $options: 'i' } },
         { lastName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
+        { email: { $regex: search, $options: 'i' } },
+        { companyName: { $regex: search, $options: 'i' } },
+        { city: { $regex: search, $options: 'i' } },
+        { state: { $regex: search, $options: 'i' } }
       ];
     }
     
@@ -88,7 +90,19 @@ const getUserById = async (req, res) => {
 // @access  Private/Super Admin
 const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, password, phone, role } = req.body;
+    const { 
+      firstName, 
+      lastName, 
+      email, 
+      password, 
+      phone, 
+      role,
+      companyName,
+      address,
+      state,
+      city,
+      pinCode 
+    } = req.body;
     
     const existingUser = await User.findOne({ email }).maxTimeMS(5000);
     if (existingUser) {
@@ -106,7 +120,11 @@ const createUser = async (req, res) => {
       phone,
       role: role || 'user',
       isActive: true,
-      companyName: null
+      companyName: companyName || '',
+      address: address || '',
+      state: state || '',
+      city: city || '',
+      pinCode: pinCode || ''
     });
     
     res.status(201).json({
@@ -119,7 +137,12 @@ const createUser = async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        isActive: user.isActive
+        isActive: user.isActive,
+        companyName: user.companyName,
+        address: user.address,
+        state: user.state,
+        city: user.city,
+        pinCode: user.pinCode
       }
     });
   } catch (error) {
@@ -136,7 +159,20 @@ const createUser = async (req, res) => {
 // @access  Private/Super Admin
 const updateUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, phone, role, isActive, password } = req.body;
+    const { 
+      firstName, 
+      lastName, 
+      email, 
+      phone, 
+      role, 
+      isActive, 
+      password,
+      companyName,
+      address,
+      state,
+      city,
+      pinCode 
+    } = req.body;
     
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -152,6 +188,11 @@ const updateUser = async (req, res) => {
     if (phone) user.phone = phone;
     if (role) user.role = role;
     if (isActive !== undefined) user.isActive = isActive;
+    if (companyName !== undefined) user.companyName = companyName;
+    if (address !== undefined) user.address = address;
+    if (state !== undefined) user.state = state;
+    if (city !== undefined) user.city = city;
+    if (pinCode !== undefined) user.pinCode = pinCode;
     if (password) user.password = password;
     
     await user.save();
@@ -166,7 +207,12 @@ const updateUser = async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        isActive: user.isActive
+        isActive: user.isActive,
+        companyName: user.companyName,
+        address: user.address,
+        state: user.state,
+        city: user.city,
+        pinCode: user.pinCode
       }
     });
   } catch (error) {

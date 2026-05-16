@@ -1,4 +1,3 @@
-// src/models/User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -40,6 +39,40 @@ const userSchema = new mongoose.Schema({
     trim: true,
     default: null
   },
+  // New location fields
+  address: {
+    type: String,
+    required: function() {
+      return this.role !== 'super_admin';
+    },
+    trim: true,
+    default: ''
+  },
+  state: {
+    type: String,
+    required: function() {
+      return this.role !== 'super_admin';
+    },
+    trim: true,
+    default: ''
+  },
+  city: {
+    type: String,
+    required: function() {
+      return this.role !== 'super_admin';
+    },
+    trim: true,
+    default: ''
+  },
+  pinCode: {
+    type: String,
+    required: function() {
+      return this.role !== 'super_admin';
+    },
+    trim: true,
+    match: [/^\d{6}$/, 'PIN code must be 6 digits'],
+    default: ''
+  },
   role: {
     type: String,
     enum: ['user', 'zone_admin', 'admin', 'super_admin'],
@@ -77,6 +110,8 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
 
 // Ensure indexes are created
 userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ state: 1 });
+userSchema.index({ city: 1 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 module.exports = User;
