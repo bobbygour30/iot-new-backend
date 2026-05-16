@@ -48,6 +48,8 @@ router.get('/devices/validate/:deviceId', authMiddleware, deviceController.valid
 router.post('/devices', authMiddleware, deviceController.registerDevice);
 router.put('/devices/:id', authMiddleware, deviceController.updateDevice);
 router.delete('/devices/:id', authMiddleware, deviceController.deleteDevice);
+router.get('/devices/all', authMiddleware, deviceController.getAllUserDevices);
+
 
 
 // ==================== ADMIN ROUTES (require super_admin role) ====================

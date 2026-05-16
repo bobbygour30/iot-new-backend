@@ -10,12 +10,20 @@ const registerDevice = async (req, res) => {
     const { deviceId, type, plantId, zoneId } = req.body;
     const userId = req.user.id;
 
-    // Check if device already exists for this user
-    const existingDevice = await Device.findOne({ deviceId, userId, isActive: true });
+    // CRITICAL: Check if device already exists ANYWHERE for this user (across all zones)
+    const existingDevice = await Device.findOne({ 
+      deviceId, 
+      userId, 
+      isActive: true 
+    }).populate('zoneId', 'name');
+    
     if (existingDevice) {
+      // Get the zone name where this device is already assigned
+      const existingZoneName = existingDevice.zoneId?.name || 'Unknown Zone';
+      
       return res.status(400).json({
         success: false,
-        message: 'Device with this ID already exists in your account'
+        message: `This device is already assigned to zone: "${existingZoneName}". Please remove it from that zone first or use a different device.`
       });
     }
 
@@ -106,6 +114,29 @@ const getDevicesByPlant = async (req, res) => {
     });
   } catch (error) {
     console.error('Get devices error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+// @desc    Get all devices across all zones for a user (for checking duplicate assignments)
+// @route   GET /api/devices/all
+// @access  Private
+const getAllUserDevices = async (req, res) => {
+  try {
+    const devices = await Device.find({
+      userId: req.user.id,
+      isActive: true
+    }).populate('plantId zoneId', 'name');
+
+    res.status(200).json({
+      success: true,
+      data: devices
+    });
+  } catch (error) {
+    console.error('Get all devices error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -293,13 +324,14 @@ const validateDeviceId = async (req, res) => {
     const userId = req.user.id;
 
     // Check if device already exists for this user
-    const existingDevice = await Device.findOne({ deviceId, userId, isActive: true });
+    const existingDevice = await Device.findOne({ deviceId, userId, isActive: true }).populate('zoneId', 'name');
     
     res.status(200).json({
       success: true,
       data: {
         exists: !!existingDevice,
-        device: existingDevice
+        device: existingDevice,
+        zoneName: existingDevice?.zoneId?.name || null
       }
     });
   } catch (error) {
@@ -315,6 +347,7 @@ module.exports = {
   registerDevice,
   getDevicesByZone,
   getDevicesByPlant,
+  getAllUserDevices,
   getDevice,
   updateDevice,
   deleteDevice,
