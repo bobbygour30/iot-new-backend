@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const database = require('./config/database');
+const db = require('./config/db');
 const apiRoutes = require('./routes/api');
 const errorHandler = require('./middleware/errorMiddleware');
 
@@ -10,9 +10,9 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-// Initialize database connection (don't block server start)
-database.connect().catch(err => {
-  console.error('Failed to connect to database:', err);
+// Initialize db connection (don't block server start)
+db.connect().catch(err => {
+  console.error('Failed to connect to db:', err);
   // Don't exit process in serverless environment
   if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
     process.exit(1);
@@ -72,35 +72,35 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// Middleware to ensure database connection for API routes
+// Middleware to ensure db connection for API routes
 const ensureDbConnection = async (req, res, next) => {
-  // Skip database check for health endpoints
+  // Skip db check for health endpoints
   if (req.path === '/health' || req.path === '/api/health') {
     return next();
   }
   
   try {
     // If not connected, try to connect
-    if (!database.isConnected()) {
-      console.log('Database not connected, attempting connection...');
-      await database.connect();
+    if (!db.isConnected()) {
+      console.log('db not connected, attempting connection...');
+      await db.connect();
     }
     
     // If still not connected, return error
-    if (!database.isConnected()) {
-      console.error('Database connection failed for request:', req.method, req.path);
+    if (!db.isConnected()) {
+      console.error('db connection failed for request:', req.method, req.path);
       return res.status(503).json({
         success: false,
-        message: 'Database connection issue. Please try again later.'
+        message: 'db connection issue. Please try again later.'
       });
     }
     
     next();
   } catch (error) {
-    console.error('Database connection middleware error:', error);
+    console.error('db connection middleware error:', error);
     res.status(503).json({
       success: false,
-      message: 'Database connection issue. Please try again.'
+      message: 'db connection issue. Please try again.'
     });
   }
 };
@@ -114,29 +114,29 @@ app.get('/', (req, res) => {
     environment: process.env.NODE_ENV,
     timestamp: new Date().toISOString(),
     status: 'online',
-    database: {
-      connected: database.isConnected(),
-      status: database.getStatus()
+    db: {
+      connected: db.isConnected(),
+      status: db.getStatus()
     }
   });
 });
 
-// Health check endpoint (no database connection required)
+// Health check endpoint (no db connection required)
 app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    mongodb: database.isConnected() ? 'connected' : 'disconnected',
-    mongodbStatus: database.getStatus(),
+    mongodb: db.isConnected() ? 'connected' : 'disconnected',
+    mongodbStatus: db.getStatus(),
     environment: process.env.NODE_ENV,
     vercel: !!process.env.VERCEL,
     clientIp: req.ip
   });
 });
 
-// API routes with database connection middleware
+// API routes with db connection middleware
 app.use('/api', ensureDbConnection, apiRoutes);
 
 // 404 handler
