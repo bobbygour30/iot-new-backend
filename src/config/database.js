@@ -58,7 +58,7 @@ class Database {
         heartbeatFrequencyMS: 10000,
         retryWrites: true,
         retryReads: true,
-        dbName: 'zone_monitor', // Explicitly set database name
+        dbName: 'test', // Explicitly set database name
         ...(isServerless && { 
           maxIdleTimeMS: 10000,
           waitQueueTimeoutMS: 10000 
