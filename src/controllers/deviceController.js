@@ -243,16 +243,16 @@ const updateDevice = async (req, res) => {
   }
 };
 
-// @desc    Delete device (soft delete)
+// @desc    Delete device (HARD DELETE - permanently remove)
 // @route   DELETE /api/devices/:id
 // @access  Private
 const deleteDevice = async (req, res) => {
   try {
-    const device = await Device.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
-      { isActive: false },
-      { new: true }
-    );
+    // Find and permanently delete the device
+    const device = await Device.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.user.id
+    });
 
     if (!device) {
       return res.status(404).json({
@@ -261,15 +261,21 @@ const deleteDevice = async (req, res) => {
       });
     }
 
+    console.log(`✅ Device permanently deleted: ${device.deviceId} (${device._id})`);
+
     res.status(200).json({
       success: true,
-      message: 'Device deleted successfully'
+      message: `Device "${device.deviceId}" permanently deleted successfully. You can now add it to another zone.`,
+      data: {
+        deviceId: device.deviceId,
+        deletedAt: new Date().toISOString()
+      }
     });
   } catch (error) {
     console.error('Delete device error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: error.message || 'Server error'
     });
   }
 };
@@ -323,8 +329,12 @@ const validateDeviceId = async (req, res) => {
     const { deviceId } = req.params;
     const userId = req.user.id;
 
-    // Check if device already exists for this user
-    const existingDevice = await Device.findOne({ deviceId, userId, isActive: true }).populate('zoneId', 'name');
+    // Check if device already exists for this user (only active ones)
+    const existingDevice = await Device.findOne({ 
+      deviceId, 
+      userId, 
+      isActive: true 
+    }).populate('zoneId', 'name');
     
     res.status(200).json({
       success: true,
